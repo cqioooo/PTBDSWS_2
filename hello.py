@@ -1,4 +1,5 @@
 import os
+import json
 import requests
 from dotenv import load_dotenv
 from flask import Flask, render_template, session, redirect, url_for, request
@@ -9,6 +10,7 @@ from wtforms import StringField, SubmitField, SelectField, BooleanField
 from wtforms.validators import DataRequired
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
+from datetime import datetime
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 load_dotenv(os.path.join(basedir, '.env'))
@@ -51,6 +53,24 @@ class User(db.Model):
         return '<User %r>' % self.username
 
 
+# Tabela para persistir o histórico de e-mails enviados
+class EmailLog(db.Model):
+    __tablename__ = 'email_logs'
+    id = db.Column(db.Integer, primary_key=True)
+    de = db.Column(db.String(64))
+    para = db.Column(db.Text)
+    assunto = db.Column(db.String(128))
+    texto = db.Column(db.String(256))
+    timestamp = db.Column(db.DateTime, default=datetime.now)
+
+    @property
+    def para_lista(self):
+        try:
+            return json.loads(self.para)
+        except Exception:
+            return [self.para]
+
+
 # Formulário da página inicial (Index)
 class NameForm(FlaskForm):
     name = StringField('What is your name?', validators=[DataRequired()])
@@ -77,6 +97,9 @@ def send_notification_email(new_username, send_to_zoho=False):
 
     print(f"--> [DISPARO SENDGRID] Destinatários: {recipients} | Novo utilizador: {new_username}")
 
+    subject = "[Flasky] Novo usuário"
+    text_content = f"Novo usuário cadastrado: {new_username}"
+
     html_content = render_template(
         'email_body.html',
         student_name=STUDENT_NAME,
@@ -100,7 +123,7 @@ def send_notification_email(new_username, send_to_zoho=False):
             "email": SENDGRID_SENDER_EMAIL,
             "name": STUDENT_NAME
         },
-        "subject": "Novo Usuário Cadastrado",
+        "subject": subject,
         "content": [
             {
                 "type": "text/html",
@@ -112,7 +135,17 @@ def send_notification_email(new_username, send_to_zoho=False):
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=10)
         print(f"--> [RESPOSTA SENDGRID] Status: {response.status_code}")
-        if response.status_code != 202:
+        if response.status_code == 202:
+            log = EmailLog(
+                de=new_username,
+                para=json.dumps(recipients),
+                assunto=subject,
+                texto=text_content,
+                timestamp=datetime.now()
+            )
+            db.session.add(log)
+            db.session.commit()
+        else:
             print(f"--> [RESPOSTA SENDGRID] Erro: {response.text}")
     except Exception as e:
         print(f"--> [ERRO SENDGRID]: {e}")
@@ -120,7 +153,7 @@ def send_notification_email(new_username, send_to_zoho=False):
 
 @app.shell_context_processor
 def make_shell_context():
-    return dict(db=db, User=User, Role=Role)
+    return dict(db=db, User=User, Role=Role, EmailLog=EmailLog)
 
 
 @app.errorhandler(404)
@@ -207,6 +240,11 @@ def email_route():
         known=session.get('known', False),
         users=users
     )
+
+@app.route('/emails_enviados')
+def emails_enviados():
+    emails = EmailLog.query.order_by(EmailLog.timestamp.desc()).all()
+    return render_template('emails_enviados.html', emails=emails)
 
 
 @app.route('/user/<name>/<pront>/<inst>')

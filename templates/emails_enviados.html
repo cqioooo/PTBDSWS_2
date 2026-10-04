@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block page_content %}
+<div class="page-header" style="border-bottom: none; margin-bottom: 10px;">
+    <h1>E-mails enviados</h1>
+    <p>Relação de e-mails enviados para o administrador do sistema, notificando o cadastro de novos usuários.</p>
+</div>
+
+<div class="table-responsive">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>De</th>
+                <th>Para</th>
+                <th>Assunto</th>
+                <th>Texto</th>
+                <th>Data/Hora</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in emails %}
+            <tr>
+                <td>{{ item.de }}</td>
+                <td>
+                    {% for dest in item.para_lista %}
+                        '{{ dest }}'{% if not loop.last %},<br>{% endif %}
+                    {% endfor %}
+                </td>
+                <td>{{ item.assunto }}</td>
+                <td>{{ item.texto }}</td>
+                <td>{{ item.timestamp.strftime('%d/%m/%Y<br>%H:%M:%S') | safe }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
