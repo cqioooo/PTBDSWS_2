@@ -19,15 +19,39 @@
     <table class="table">
         <thead>
             <tr>
-                <th style="width: 70%;">Nome do usuário</th>
-                <th style="width: 30%;">Função</th>
+                <th style="width: 50%;">Nome do usuário</th>
+                <th style="width: 50%;">Função</th>
             </tr>
         </thead>
         <tbody>
             {% for u in users %}
             <tr>
-                <td>{{ u.username }}</td>
-                <td>{{ u.role.name if u.role else 'User' }}</td>
+                <td>
+                    <!-- Modo Leitura -->
+                    <div id="view-{{ u.id }}" style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>{{ u.username }}</span>
+                        <button type="button" class="btn btn-default btn-xs" onclick="toggleEdit('{{ u.id }}', true)">Editar</button>
+                    </div>
+
+                    <!-- Modo Edição -->
+                    <div id="edit-{{ u.id }}" style="display: none;">
+                        <form method="POST" action="{{ url_for('.index') }}" class="form-inline" style="display: flex; align-items: center; gap: 6px;">
+                            <input type="hidden" name="update_user_id" value="{{ u.id }}">
+                            <input type="text" name="new_username" value="{{ u.username }}" class="form-control input-sm" style="width: 180px;" required>
+                            <button type="button" class="btn btn-default btn-xs" onclick="toggleEdit('{{ u.id }}', false)">Cancelar</button>
+                            <button type="submit" class="btn btn-primary btn-xs">Salvar</button>
+                        </form>
+                    </div>
+                </td>
+                <td>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>{{ u.role.name if u.role else 'User' }}</span>
+                        <form method="POST" action="{{ url_for('.index') }}" style="margin: 0;">
+                            <input type="hidden" name="delete_user_id" value="{{ u.id }}">
+                            <button type="submit" class="btn btn-danger btn-xs" onclick="return confirm('Deseja excluir {{ u.username }}?');">Excluir</button>
+                        </form>
+                    </div>
+                </td>
             </tr>
             {% else %}
             <tr>
@@ -37,4 +61,18 @@
         </tbody>
     </table>
 </div>
+
+<script>
+function toggleEdit(userId, show) {
+    var viewDiv = document.getElementById('view-' + userId);
+    var editDiv = document.getElementById('edit-' + userId);
+    if (show) {
+        viewDiv.style.display = 'none';
+        editDiv.style.display = 'block';
+    } else {
+        viewDiv.style.display = 'flex';
+        editDiv.style.display = 'none';
+    }
+}
+</script>
 {% endblock %}
